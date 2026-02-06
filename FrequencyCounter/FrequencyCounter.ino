@@ -4,20 +4,20 @@
  *  Counts frequencies up to 8 MHz with a gate time of 1 second.
  *
  *  Principle of operation:
- *  Input signal at Pin 4 is directly feed to the 8 bit counter of timer0.
- *  An interrupt is generated at every transition of the timer from 0xFF to 0x00.
- *  Then interrupt maintains a software counter for the signal frequency / 256.
+ *  Input signal at Pin 4 is directly feed to the 8 bit hardware counter of timer0.
+ *  An interrupt is generated at every transition of  timer0 from 0xFF to 0x00.
+ *  This interrupt maintains a software counter for the signal frequency / 256.
  *  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *  !!! This disables the millis() function, which must be replaced by delayMilliseconds(unsigned int aMillis)  !!!
  *  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
- *  Timer 1 generates an interrupt every second, which reads the timer0 8 bit counter,
- *  resets it and adds the value of the software counter.
+ *  Timer1 generates an interrupt every second, which reads the 8 bit counter of timer0,
+ *  resets it and then adds the value of the software counter to get the frequency.
  *
- *  Timer2 generates a 1 MHz signal at pin3 by hardware.
+ *  Timer2 generates an 1 MHz output at pin3 by hardware for test and calibration purposes.
  *
  *  Special effort was taken to ensure that the 1 second interrupt is NOT delayed and therefore the gate timing is always exact.
- *  Thus, the handling of the transition of timer0 is changed to polling 0.5 ms before the 1 second interrupt.
+ *  To guarantee this, the handling of the transition of timer0 is changed to polling 0.5 ms before the 1 second interrupt.
  *  This allows to use the loop for other purposes the rest of the second :-).
  *
  *  Copyright (C) 2026  Armin Joachimsmeyer
@@ -35,8 +35,9 @@
 
 #include <Arduino.h>
 
-#define VERSION_EXAMPLE "1.0"
+#define VERSION_EXAMPLE "1.1"
 
+#define USE_BIG_NUMBERS
 #define USE_PARALLEL_1602_LCD
 //#define USE_PARALLEL_2004_LCD
 #include "LCDPrintUtils.hpp"
@@ -47,6 +48,11 @@
 //LiquidCrystal myLCD(8, 9, 4, 5, 6, 7);
 LiquidCrystal myLCD(12, 13, 8, 9, 10, 11); // Pins 8 to 123
 char sStringBufferForLCDRow[LCD_COLUMNS + 1]; // For rendering LCD lines with snprintf_P()
+#if defined(USE_BIG_NUMBERS)
+#include "LCDBigNumbers.hpp" // Include sources for LCD big number generation
+LCDBigNumbers BigNumbersLCD(&myLCD, BIG_NUMBERS_FONT_1_COLUMN_2_ROWS_VARIANT_1); // Use 3x4 numbers, 1. variant
+bool LCDIsInitialized;
+#endif
 
 //#define LOCAL_DEBUG // Must be after all includes
 
@@ -123,7 +129,11 @@ void setup() {
 
     myLCD.begin(LCD_COLUMNS, LCD_ROWS);
     myLCD.print(F("FrequencyCounter"));
-
+    myLCD.setCursor(0, 1);
+    myLCD.print(F(VERSION_EXAMPLE));
+#if defined(USE_BIG_NUMBERS)
+    BigNumbersLCD.begin(); // This also sets cursor to 0.0
+#endif
     Serial.begin(115200);
     // Just to know which program is running on my Arduino
     Serial.println(F("START " __FILE__ "\r\nVersion " VERSION_EXAMPLE " from " __DATE__));
@@ -152,9 +162,24 @@ void loop() {
         //    sMatchPrint.printWithLeadingText(sTimer0MatchCount);
         if (sSecondHasPassed) {
             sSecondHasPassed = false;
+#if defined(USE_BIG_NUMBERS)
+            if (!LCDIsInitialized) {
+                LCDIsInitialized = true;
+                // Clear "FrequencyCounter" and write Hz
+                myLCD.setCursor(7, 0);
+                myLCD.print(F(" \x02         "));
+                myLCD.setCursor(7, 1);
+                myLCD.print(F(" \x01Z"));
+            }
+
+            snprintf_P(sStringBufferForLCDRow, sizeof(sStringBufferForLCDRow), PSTR("%7lu"), sExternalClockCount);
+            BigNumbersLCD.setBigNumberCursor(0, 0);
+            BigNumbersLCD.print(sStringBufferForLCDRow);
+#else
             snprintf_P(sStringBufferForLCDRow, sizeof(sStringBufferForLCDRow), PSTR("%7lu Hz "), sExternalClockCount);
             myLCD.setCursor(0, 1);
             myLCD.print(sStringBufferForLCDRow);
+#endif
 
 #if defined(LOCAL_DEBUG)
                 Serial.print(sExternalClockCount);

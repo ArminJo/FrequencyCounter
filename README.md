@@ -25,21 +25,24 @@ Counts frequencies up to 8 MHz with a gate time of 1 second
 
 <br/>
 
+![Frequency Counter with Uno](pictures/FrequencyCounter.jpg)
+
 # Principle of operation
-Input signal at Pin 4 is directly feed to the 8 bit counter of timer0.<br/>
-An interrupt is generated at every transition of the timer from 0xFF to 0x00.<br/>
-Then interrupt maintains a software counter for the signal frequency / 256.
+Input signal at Pin 4 is directly feed to the **8 bit hardware counter** of timer0.<br/>
+An interrupt is generated at every transition of timer0 from 0xFF to 0x00.<br/>
+This interrupt maintains a **software counter** for the signal frequency / 256.
 
-**This disables the millis() function, which must be replaced by delayMilliseconds(unsigned int aMillis).**
+**This disables the millis() function, which can be replaced by delayMilliseconds(unsigned int aMillis).**
 
 
-**Timer 1*** generates an interrupt every second, which reads the timer0 8 bit counter,
-resets it and adds the value of the software counter.
+**Timer 1*** generates an interrupt every second, which reads the 8 bit counter of timer0,
+resets it and then adds the value of the software counter to get the frequency.
 
-**Timer2** generates a 1 MHz signal at pin3 by hardware.
+**Timer2** generates an **1 MHz output** at pin3 by hardware for test and calibration purposes.
 
-Special effort was taken to ensure that the 1 second interrupt is NOT delayed and therefore the gate timing is always exact.<br/>
-Thus, the handling of the transition of timer0 is changed to polling 0.5 ms before the 1 second interrupt.<br/>
+Special effort was taken to ensure that the 1 second interrupt is NOT delayed<br/>
+and therefore the **gate timing is always exact**.<br/>
+To guarantee this, the handling of the transition of timer0 is changed to **polling** 0.5 ms before the 1 second interrupt.<br/>
 This allows to use the loop for other purposes the rest of the second :-).
 
  <br/>
@@ -48,5 +51,8 @@ This allows to use the loop for other purposes the rest of the second :-).
 Download and extract the repository. In the Arduino IDE open the sketch with File -> Open... and select the FrequencyCounter folder.
 
 # Revision History
+### Version 1.1
+- Big number display.
+
 ### Version 1.0
 - Initial Version.
